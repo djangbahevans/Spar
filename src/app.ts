@@ -1,10 +1,10 @@
 import express from "express";
+import mongoose from 'mongoose';
+import { JwtStrategy } from "./config/passport";
+import { AccountController, AuthController, GameController } from "./controllers";
 const app: express.Application = express();
 import passport = require("passport");
 import bodyParser = require("body-parser");
-import { JwtStrategy } from "./config/passport";
-import { AuthController, AccountController, GameController } from "./controllers";
-import mongoose from 'mongoose';
 
 const connString = 'mongodb://localhost/card_game';
 mongoose.connect(connString, { useNewUrlParser: true }).then(() => {

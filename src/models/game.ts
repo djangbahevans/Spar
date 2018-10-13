@@ -11,14 +11,13 @@ const GameSchema = new mongoose.Schema({
         }],
         currentCards: [{
             type: mongoose.Schema.Types.Mixed
-        }],
-        isLead: {
-            type: Boolean,
-            required: true
-        }
+        }]
     }],
     leadCard: {
         type: mongoose.Schema.Types.Mixed
+    },
+    lead: {
+        type: String
     },
     currentCards: [{
         type: mongoose.Schema.Types.Mixed

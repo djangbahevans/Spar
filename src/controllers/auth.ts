@@ -1,10 +1,12 @@
 import bcrypt from 'bcrypt';
-import passport from "passport";
 import { Request, Response, Router } from "express";
 import { User } from "../models/users";
 
 const router: Router = Router();
 
+// @auth    POST /auth/login
+// @desc    Login user
+// @access  Public
 router.post('/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
 

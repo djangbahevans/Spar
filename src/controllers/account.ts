@@ -5,6 +5,15 @@ import bcrypt from "bcrypt";
 
 const router: Router = Router()
 
+router.get('/', passport.authenticate('jwt', { session: false }),
+    async (req: Request, res: Response) => {
+        const user = await User.findOne({ username: req.user.username });
+        return res.send(user);
+    });
+
+// @route   POST /account/register
+// @desc    Register user
+// @access  Public
 router.post('/register', async (req: Request, res: Response) => {
     const { username, email, name } = req.body
     let { password } = req.body
@@ -37,14 +46,17 @@ router.post('/register', async (req: Request, res: Response) => {
         })
 });
 
+// @route   DELETE /account/delete
+// @desc    Delete account
+// @access  Members
 router.delete('/delete', passport.authenticate('jwt', { session: false }),
     async (req: Request, res: Response) => {
         const { email, password } = req.body
         const user: any = await User.findOne({ email: req.body.email });
-        
+
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) return res.send("Password invalid");
-        
+
         await User.deleteOne({ email })
         return res.send(user);
     });
