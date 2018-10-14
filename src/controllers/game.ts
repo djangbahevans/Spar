@@ -75,13 +75,9 @@ router.delete('/leave/:id', passport.authenticate('jwt', { session: false }),
         else { await game.save(); }
 
         const user: any = await User.findOne({ username: req.user.username });
-        const games = user.games.filter((game: any) => game._id !== req.params.id);
-        if (games.length !== user.games.length) {
-            user.games = games;
-            user.save();
-        } else {
-            return res.status(400).send("You are not in this game");
-        }
+        const games = user.games.filter((id: any) => id.toString() != req.params.id);
+        user.games = games;
+        user.save();
 
         return res.send(game);
     });
@@ -91,16 +87,26 @@ router.delete('/leave/:id', passport.authenticate('jwt', { session: false }),
 // @access  Members
 router.post('/shuffle/:id', passport.authenticate('jwt', { session: false }),
     async (req: Request, res: Response) => {
-        let shuffledDeck = shuffle(deck);
+        let shuffledDeck = shuffle(JSON.parse(JSON.stringify(deck)));
+        
         const game: any = await Game.findById(req.params.id);
         for (let i = 0; i < game.players.length; i++) {
-            game.players[i].currentCards = shuffledDeck.splice(0, 5);
+            game.players[i].currentCards = [];
+            for (let j = 0; j < 5; j++) {
+                const n: number = Math.round(Math.random() * shuffledDeck.length)
+                game.players[i].currentCards.push(shuffledDeck.splice(n, 1)[0]);
+            }
             game.players[i].playedCards=[];
         }
+        game.currentCards = [];
+        game.leadCard = undefined;
         game.save();
         return res.send(game);
     });
 
+// @route   POST /deal/:id
+// @desc    Deal card
+// @access  Members
 router.post('/deal/:id', passport.authenticate('jwt', { session: false }),
     async (req: Request, res: Response) => {
         const { username } = req.user;
@@ -109,6 +115,9 @@ router.post('/deal/:id', passport.authenticate('jwt', { session: false }),
 
         const game: any = await Game.findById(req.params.id);
         if (!game) return res.status(404).send("Game does not exist")
+        
+        if (game.currentCards.find((card: any) => card.username === username))
+            return res.status(400).send("You have already played")
         let currPlayer = game.players.find((player: any) => username === player.username);
 
         // Test if player has card
@@ -124,22 +133,31 @@ router.post('/deal/:id', passport.authenticate('jwt', { session: false }),
             game.players = game.players.map((player: any) => {
                 if (player.username !== username) return player;
                 player.currentCards = player.currentCards
-                    .filter((cCard: Card) => {
-                        const keep = cCard.type !== card.type || cCard.number !== card.number;
-                        if (!keep) player.playedCards.push(cCard) // Add card to playedCards
-                        return keep;
-                    });
+                    .filter((cCard: Card) =>  cCard.type !== card.type || cCard.number !== card.number);
+                player.playedCards.push(card)
                 currPlayer=player;
                 return player;
             });
+            game.currentCards.push({
+                username,
+                card
+            });
+            // Check/set game state
+            if (game.players.length === game.currentCards.length) {// Everybody's played
+                let { leadCard, lead } = game;
+                for (let i = 0; i < game.currentCards.length; i++) {
+                    const playedCard = game.currentCards[i];
+                    if (parseInt(playedCard.number) > parseInt(leadCard.number)) {
+                        leadCard = playedCard
+                        lead = playedCard.username
+                    }
+                }
+                game.leadCard = leadCard;
+                game.lead = lead;
+            }
             game.save();
             return res.send(currPlayer);
         }
-
-        if (game.lead === username && game.leadCard) {
-            return res.status(400).send("You have already played");
-        }
-            
 
         // If a player plays legally
         if (game.lead !== username && game.leadCard) {
@@ -156,15 +174,30 @@ router.post('/deal/:id', passport.authenticate('jwt', { session: false }),
             game.players = game.players.map((player: any) => {
                 if (player.username !== username) return player;
                 player.currentCards = player.currentCards
-                    .filter((cCard: Card) => {
-                        const keep = cCard.type !== card.type || cCard.number !== card.number;
-                        if (!keep) player.playedCards.push(cCard) // Add card to playedCards
-                        return keep;
-                    });
+                    .filter((cCard: Card) => cCard.type !== card.type || cCard.number !== card.number);
+                player.playedCards.push(card) // Add card to playedCards
                 currPlayer = player;
                 return player;
             });
+            game.currentCards.push({
+                username,
+                card
+            });
         }
+
+        // After everything
+        if (game.players.length === game.currentCards.length) {// Everybody's played
+            let { leadCard, lead } = game;
+            for (let i = 0; i < game.currentCards.length; i++) {
+                const playedCard = game.currentCards[i];
+                if (leadCard.type === playedCard.type && parseInt(playedCard.card.number) > parseInt(leadCard.number)) {
+                    lead = playedCard.username;
+                }
+            }
+            game.lead = lead;
+            game.leadCard = undefined;
+        }
+        game.currentCards = [];
         game.save();
         return res.send(currPlayer);
     });

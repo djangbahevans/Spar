@@ -25,5 +25,5 @@ app.use('/game', GameController);
 
 const port: number = Number(process.env.PORT) || 8080;
 app.listen(port, () => {
-    console.log('Server is up');
+    console.log('Server running on port,', port);
 });
